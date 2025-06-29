@@ -1,1 +1,185 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Same head content as before -->
+    <style>
+        /* Same CSS as before */
+    </style>
+</head>
+<body>
+    <!-- Same HTML structure as before, but with updated JavaScript -->
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Language selection
+            const languageCards = document.querySelectorAll('.language-card');
+            const selectedLanguages = new Set(['hi', 'mr']);  // Default selected
+            
+            languageCards.forEach(card => {
+                const lang = card.dataset.lang;
+                
+                card.addEventListener('click', function() {
+                    this.classList.toggle('selected');
+                    
+                    if (this.classList.contains('selected')) {
+                        selectedLanguages.add(lang);
+                    } else {
+                        selectedLanguages.delete(lang);
+                    }
+                });
+            });
+            
+            // Translate button click - now with actual API call
+            document.getElementById('translate-btn').addEventListener('click', async function() {
+                const url = document.getElementById('youtube-url').value;
+                if (!url) {
+                    alert('Please enter a YouTube URL');
+                    return;
+                }
+                
+                if (selectedLanguages.size === 0) {
+                    alert('Please select at least one language');
+                    return;
+                }
+                
+                // Prepare form data
+                const formData = new FormData();
+                formData.append('youtube_url', url);
+                selectedLanguages.forEach(lang => formData.append('languages', lang));
+                
+                if (document.getElementById('subtitles').checked) {
+                    formData.append('subtitles', 'true');
+                }
+                
+                if (document.getElementById('dubbed-audio').checked) {
+                    formData.append('dubbed-audio', 'true');
+                }
+                
+                if (document.getElementById('preserve-original').checked) {
+                    formData.append('preserve-original', 'true');
+                }
+                
+                // Show progress
+                const progressContainer = document.getElementById('progress-container');
+                progressContainer.style.display = 'block';
+                updateProgress(0, 'Starting translation process...');
+                
+                try {
+                    const response = await fetch('/translate', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (response.ok) {
+                        // Simulate progress updates (in real app would use WebSockets or polling)
+                        simulateProgress(data.job_id);
+                    } else {
+                        throw new Error(data.error || 'Translation failed');
+                    }
+                } catch (error) {
+                    progressContainer.style.display = 'none';
+                    alert(`Error: ${error.message}`);
+                }
+            });
+            
+            function updateProgress(percent, message) {
+                document.getElementById('progress-fill').style.width = `${percent}%`;
+                document.getElementById('progress-text').textContent = message;
+                
+                const steps = document.querySelectorAll('.progress-step');
+                if (percent > 25) {
+                    steps[0].classList.add('completed');
+                    steps[1].classList.add('active');
+                }
+                if (percent > 50) {
+                    steps[1].classList.add('completed');
+                    steps[2].classList.add('active');
+                }
+                if (percent > 75) {
+                    steps[2].classList.add('completed');
+                    steps[3].classList.add('active');
+                }
+            }
+            
+            function simulateProgress(jobId) {
+                let progress = 0;
+                const interval = setInterval(() => {
+                    progress += Math.random() * 5;
+                    if (progress >= 100) {
+                        progress = 100;
+                        clearInterval(interval);
+                        showResults(jobId);
+                    }
+                    
+                    let message = '';
+                    if (progress < 25) message = 'Downloading video...';
+                    else if (progress < 50) message = 'Transcribing audio...';
+                    else if (progress < 75) message = 'Translating text...';
+                    else message = 'Generating output files...';
+                    
+                    updateProgress(progress, message);
+                }, 300);
+            }
+            
+            function showResults(jobId) {
+                const resultContainer = document.getElementById('result-container');
+                resultContainer.style.display = 'block';
+                resultContainer.innerHTML = `
+                    <h3 class="card-title"><i class="fas fa-download"></i> Your Translations Are Ready!</h3>
+                    <div id="result-items"></div>
+                `;
+                
+                // In a real app, you would fetch actual results from the server
+                // For demo, we'll show possible outputs based on selected options
+                const resultItems = document.getElementById('result-items');
+                
+                selectedLanguages.forEach(lang => {
+                    const langName = lang === 'hi' ? 'Hindi' : 'Marathi';
+                    
+                    if (document.getElementById('subtitles').checked) {
+                        resultItems.innerHTML += `
+                            <div class="result-item">
+                                <div class="result-icon">
+                                    <i class="fas fa-closed-captioning"></i>
+                                </div>
+                                <div class="result-details">
+                                    <h3>${langName} Subtitles</h3>
+                                    <p>SRT file with ${langName} translation</p>
+                                </div>
+                                <button class="download-btn" onclick="downloadFile('${jobId}', 'subtitles_${lang}.srt')">
+                                    Download
+                                </button>
+                            </div>
+                        `;
+                    }
+                    
+                    if (document.getElementById('dubbed-audio').checked) {
+                        resultItems.innerHTML += `
+                            <div class="result-item">
+                                <div class="result-icon">
+                                    <i class="fas fa-film"></i>
+                                </div>
+                                <div class="result-details">
+                                    <h3>${langName} Dubbed Video</h3>
+                                    <p>MP4 video with ${langName} audio</p>
+                                </div>
+                                <button class="download-btn" onclick="downloadFile('${jobId}', 'output_${lang}.mp4')">
+                                    Download
+                                </button>
+                            </div>
+                        `;
+                    }
+                });
+            }
+        });
+        
+        // Global function for download buttons
+        function downloadFile(jobId, filename) {
+            window.location.href = `/download/${jobId}/${filename}`;
+        }
+    </script>
+</body>
+</html>
